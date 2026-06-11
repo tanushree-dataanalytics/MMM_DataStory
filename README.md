@@ -18,8 +18,8 @@ Think of it as a spreadsheet where each row is one week. For every week, we know
 ### Columns
 ColumnTypeWhat it meansDATEDateThe Monday of each weektv_SNumericEuros spent on TV advertising that weekradio_SNumericEuros spent on radio advertising that weekpaid_search_SNumericEuros spent on paid search ads that weekrevenueNumericTotal company revenue that week — the variable the model is trying to explaincompetitor_salesNumericA competitor's sales figure — excluded from all models (see below)
 Why is competitor_sales excluded?
-Before fitting any model, a data quality check measures the correlation between every variable and revenue. Correlation is a number between -1 and +1 that tells you how closely two variables move together. A correlation of 1.0 means they are perfectly in sync — when one goes up, the other always goes up by the exact same proportion.
-competitor_sales had a correlation of 1.0 with revenue in this dataset. This is a data artefact — they are essentially the same number. Including it would give the model a perfect R² of 1.0 by simply using competitor_sales as a stand-in for revenue, completely ignoring the actual ad channels. It tells us nothing useful and breaks the model entirely. It is permanently excluded from all features.
+Before fitting any model, a data quality check measures the correlation between every variable and revenue. Correlation is a number between -1 and +1 that tells you how closely two variables move together. A correlation of 1.0 means they are perfectly in sync, when one goes up, the other always goes up by the exact same proportion.
+competitor_sales had a correlation of 1.0 with revenue in this dataset. This is a data artefact, they are basically the same number. Including it would give the model a perfect R² of 1.0 by simply using competitor_sales as a stand-in for revenue, completely ignoring the actual ad channels. It tells us nothing useful and breaks the model entirely. It is permanently excluded from all features.
 
 ### Key concepts: definitions
 Before explaining what the model does, here are plain-English definitions of every concept used.
@@ -41,9 +41,9 @@ VIF 4 to 10 — moderate, worth monitoring
 VIF above 10 — serious, coefficients are unreliable
 
 ### Regularisation
-A technique used in Ridge regression that adds a small penalty to prevent any one variable from receiving an unrealistically large coefficient. It deliberately trades a tiny bit of accuracy for a lot of stability — useful when channels are correlated.
+A technique used in Ridge regression that adds a small penalty to prevent any one variable from receiving an unrealistically large coefficient. It deliberately trades a tiny bit of accuracy for a lot of stability, which is useful when channels are correlated.
 ### Baseline revenue
-The revenue the company would have made even with zero advertising. This includes loyal repeat customers, organic traffic, word of mouth, and general market demand. In most real MMMs, baseline is 60–80% of total revenue — advertising is incremental on top of an existing business.
+The revenue the company would have made even with zero advertising. This includes loyal repeat customers, organic traffic, word of mouth, and general market demand. In most real MMMs, baseline is 60–80% of total revenue, advertising is incremental on top of an existing business.
 
 ### What transformations are applied to the data?
 Raw spend numbers cannot go straight into a regression model. Two transformations are applied first, in this exact order: adstock first, then saturation.
@@ -66,36 +66,36 @@ Decay = 0.5 → each week, 50% of last week's effect remains
 
 ### How were the decay values chosen?
 Set based on industry convention and domain knowledge, which is standard practice when no prior model runs exist to calibrate from:
-ChannelDecayReasoningTV0.6TV builds brand memory over weeks — long carry-overRadio0.3Medium carry-over — more immediate than TVPaid Search0.1Almost entirely immediate — you click or you don't
+ChannelDecayReasoningTV0.6TV builds brand memory over weeks — long carry-overRadio0.3Medium carry-over, more immediate than TVPaid Search0.1Almost entirely immediate, you click or you don't
 ### What does geometric adstock look like in practice?
 If €1,000 is spent on TV in week 1 and nothing after:
 Week 1:  1000
 Week 2:  0 + 0.6 × 1000 = 600
 Week 3:  0 + 0.6 × 600  = 360
 Week 4:  0 + 0.6 × 360  = 216
-...fades gradually to zero
-The effect does not stop abruptly — it decays smoothly, which reflects how memory and brand awareness actually work.
+fades gradually to zero
+The effect does not stop abruptly, it decays smoothly, which reflects how memory and brand awareness actually work.
 
 ### Transformation 2: Saturation
-What is saturation and why is it needed?
-Doubling your ad spend does not double your sales. The first €1,000 spent on TV reaches a large fresh audience. The next €1,000 reaches people who already saw the ad. The next €1,000 reaches even more of the same people. At some point, almost everyone reachable has been reached — additional spend produces almost no additional revenue.
-This is called diminishing returns. Without modelling it, a linear regression assumes spend and revenue have a straight-line relationship — spend double, get double. That is unrealistic and produces inflated channel contribution estimates.
+### What is saturation and why is it needed?
+Doubling your ad spend does not double your sales. The first €1,000 spent on TV reaches a large fresh audience. The next €1,000 reaches people who already saw the ad. The next €1,000 reaches even more of the same people. At some point, almost everyone reachable has been reached, additional spend produces almost no additional revenue.
+This is called diminishing returns. Without modelling it, a linear regression assumes spend and revenue have a straight-line relationship, spend double, get double. That is unrealistic and produces inflated channel contribution estimates.
 ### What type of saturation is used?
 This model uses the Michaelis-Menten function, one of the most common saturation curves in MMM.
 The formula is:
 S(x) = x / (x + K)
-Where:
 
+Where:
 x is the adstock-transformed spend value for that week
 K is the half-saturation constant — the spend level at which 50% of the maximum possible effect is reached
 Output is always between 0 and 1
 
 ### What does this curve look like?
 
-At very low spend: the curve rises steeply — each extra euro has a large effect
+At very low spend: the curve rises steeply, each extra euro has a large effect
 At spend = K: you are at exactly 50% of maximum possible effect
-At very high spend: the curve flattens — each extra euro adds almost nothing
-The output never reaches 1.0 — there is always theoretically more room, but in practice you get very close at high spend levels
+At very high spend: the curve flattens, each extra euro adds almost nothing
+The output never reaches 1.0, there is always theoretically more room, but in practice you get very close at high spend levels
 
 This is a concave curve, diminishing returns from the very first euro of spend.
 Is this the same as logistic saturation?
@@ -104,20 +104,20 @@ No. They are different shapes:
 Michaelis-Menten (used here): diminishing returns from the very first euro. The curve only ever decelerates. No threshold needed before the effect kicks in.
 Logistic: an S-shape — starts flat, accelerates through a middle zone, then decelerates. Models a threshold effect where spend has little impact until a critical mass is reached.
 
-Michaelis-Menten is the standard default in MMM because most channels show diminishing returns from the start. The logistic shape implies there is a minimum spend level below which advertising does almost nothing — which is harder to justify for general brand advertising.
+Michaelis-Menten is the standard default in MMM because most channels show diminishing returns from the start. The logistic shape implies there is a minimum spend level below which advertising does almost nothing, which is harder to justify for general brand advertising.
 ### How was K chosen?
 K is set automatically to the median of non-zero adstock values for each channel:
 pythonK = median of all weeks where adstock > 0
 This is a data-driven default. It places the half-saturation point at the middle of the observed spend distribution, roughly half of all observed spend weeks are below the point of maximum efficiency, and half are above it. No manual tuning is required.
 Why is saturation applied after adstock, not before?
-Order matters. Adstock is applied first because carry-over happens at the media level — impressions and exposures accumulate over time. Once the total effective exposure has been calculated (adstock), saturation is applied to model how that accumulated exposure translates into consumer response. Applying saturation before adstock would model diminishing returns on single-week spend before accounting for carry-over, which is economically incorrect.
+Order matters. Adstock is applied first because carry-over happens at the media level, impressions and exposures accumulate over time. Once the total effective exposure has been calculated (adstock), saturation is applied to model how that accumulated exposure translates into consumer response. Applying saturation before adstock would model diminishing returns on single-week spend before accounting for carry-over, which is economically incorrect.
 
 ### Seasonality and trend controls
 Why are seasonality controls needed?
 Revenue is not flat across the year. December is almost always higher than February. If the model does not control for these patterns, it will mistakenly credit advertising for revenue that was always going to happen due to the season.
 ### What type of seasonality is used?
 This model uses monthly dummy variables. A dummy variable is a binary (0 or 1) variable that simply flags whether a given week falls in a particular month.
-Eleven dummies are created — one for each month from February to December — with January as the reference category (dropped to avoid perfect multicollinearity). Each dummy captures the average revenue effect of being in that calendar month, independent of advertising spend.
+Eleven dummies are created, one for each month from February to December, with January as the reference category (dropped to avoid perfect multicollinearity). Each dummy captures the average revenue effect of being in that calendar month, independent of advertising spend.
 For example, a December dummy coefficient of +50,000 means: on average, December weeks generate €50,000 more revenue than January weeks, holding advertising constant.
 Monthly dummies were chosen over Fourier terms (sine and cosine waves) for two reasons:
 
@@ -157,7 +157,7 @@ For each channel, the model multiplies its coefficient by the channel's transfor
 
 ### Out-of-sample validation (80/20 split)
 The model is trained on the first 80% of weeks (weeks 1–166) and asked to predict the final 20% (weeks 167–208) it has never seen. MAPE on this held-out period checks whether the model is learning a genuine relationship or memorising the training data.
-Both OLS and Ridge are validated this way. Ridge uses fit_transform on the training set and transform (not fit_transform) on the test set — this is important because the scaler must be fitted only on training data, not the test data, to simulate a genuine out-of-sample prediction.
+Both OLS and Ridge are validated this way. Ridge uses fit_transform on the training set and transform (not fit_transform) on the test set, this is important because the scaler must be fitted only on training data, not the test data, to simulate a genuine out-of-sample prediction.
 Plots
 The script produces a 2-panel chart saved to baseline_results.png:
 
