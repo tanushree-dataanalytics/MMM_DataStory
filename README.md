@@ -2,11 +2,11 @@
 
 ### Project Overview:
 
-A Marketing Mix Model answers one simple question:
+A Marketing Mix Model answers one question:
 
 Of all the revenue a company made, how much of it actually came from advertising and which channel deserves the credit?
 
-Imagine a company spends money on TV ads, radio ads, and Google search ads every week. At the end of the year, they made €10 million. But how much of that €10 million happened because of the TV ads? How much because of search? And how much would have happened anyway, even if they had spent zero on advertising — because the brand already has loyal customers, or because people just needed the product regardless?
+Imagine a company spends money on TV ads, radio ads, and Google search ads every week. At the end of the year, they made €10 million. But how much of that €10 million happened because of the TV ads? How much because of search? And how much would have happened anyway, even if they had spent zero on advertising because the brand already has loyal customers, or because people just needed the product regardless?
 That is exactly what this model estimates. It splits every euro of revenue into two buckets:
 
 Media-driven revenue: revenue that was caused by advertising
@@ -15,9 +15,8 @@ Baseline revenue: revenue that would have happened with zero ad spend
 ### The Data
 The dataset comes from a publicly available simulated marketing dataset (source: Datankist). It contains 208 rows, one per week, covering roughly 4 years from 2016 to 2019.
 Think of it as a spreadsheet where each row is one week. For every week, we know how much was spent on each ad channel and how much revenue came in.
-### Columns
-ColumnTypeWhat it meansDATEDateThe Monday of each weektv_SNumericEuros spent on TV advertising that weekradio_SNumericEuros spent on radio advertising that weekpaid_search_SNumericEuros spent on paid search ads that weekrevenueNumericTotal company revenue that week — the variable the model is trying to explaincompetitor_salesNumericA competitor's sales figure — excluded from all models (see below)
-Why is competitor_sales excluded?
+
+### Why is competitor_sales excluded?
 Before fitting any model, a data quality check measures the correlation between every variable and revenue. Correlation is a number between -1 and +1 that tells you how closely two variables move together. A correlation of 1.0 means they are perfectly in sync, when one goes up, the other always goes up by the exact same proportion.
 competitor_sales had a correlation of 1.0 with revenue in this dataset. This is a data artefact, they are basically the same number. Including it would give the model a perfect R² of 1.0 by simply using competitor_sales as a stand-in for revenue, completely ignoring the actual ad channels. It tells us nothing useful and breaks the model entirely. It is permanently excluded from all features.
 
@@ -51,7 +50,7 @@ Raw spend numbers cannot go straight into a regression model. Two transformation
 ### Transformation 1: Adstock
 What is adstock and why is it needed?
 When someone sees a TV ad on Monday, they might not buy the product until Friday. When a brand runs a big campaign in January, people may still remember it in March. The advertising effect lingers for weeks after the ad ran.
-This carry-over effect is called adstock. Without it, the model only credits the week the ad ran and misses all the weeks it continued working — so it underestimates the true effect of advertising.
+This carry-over effect is called adstock. Without it, the model only credits the week the ad ran and misses all the weeks it continued working, so it underestimates the true effect of advertising.
 ### What type of adstock is used?
 This model uses geometric adstock, also called exponential decay adstock. It is the simplest, most widely used adstock formulation in MMM.
 The formula is:
@@ -60,13 +59,15 @@ This week's adstock = this week's actual spend + a fraction of last week's adsto
 ### What is the decay parameter?
 A number between 0 and 1 that controls how quickly the advertising effect fades:
 
-Decay = 0 → effect disappears instantly, nothing carries over
-Decay = 1 → effect never fades (unrealistic)
-Decay = 0.5 → each week, 50% of last week's effect remains
+Decay = 0 ; effect disappears instantly, nothing carries over
+Decay = 1 ; effect never fades (unrealistic)
+Decay = 0.5 ; each week, 50% of last week's effect remains
 
 ### How were the decay values chosen?
 Set based on industry convention and domain knowledge, which is standard practice when no prior model runs exist to calibrate from:
-ChannelDecayReasoningTV0.6TV builds brand memory over weeks — long carry-overRadio0.3Medium carry-over, more immediate than TVPaid Search0.1Almost entirely immediate, you click or you don't
+Channel DecayReasoning TV = 0.6, TV builds brand memory over weeks, long carry-over.
+Radio = 0.3, Medium carry-over, more immediate than TV.
+Paid Search = 0., 1Almost entirely immediate, you click or you don't
 ### What does geometric adstock look like in practice?
 If €1,000 is spent on TV in week 1 and nothing after:
 Week 1:  1000
@@ -87,7 +88,7 @@ S(x) = x / (x + K)
 
 Where:
 x is the adstock-transformed spend value for that week
-K is the half-saturation constant — the spend level at which 50% of the maximum possible effect is reached
+K is the half-saturation constant; the spend level at which 50% of the maximum possible effect is reached
 Output is always between 0 and 1
 
 ### What does this curve look like?
